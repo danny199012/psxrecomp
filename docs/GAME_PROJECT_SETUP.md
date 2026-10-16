@@ -128,7 +128,7 @@ With a Redump-style `**.cue**`:
 
 | Output                   | Contents                                                                                                                                               |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `game.toml`              | Serial / boot EXE / EXE header; `[prepare_disc]` Track 01 digests; `[netplay] require_cue`, `required_tracks`, `required_disc_fp` (`psxrecomp-toc-v1`) |
+| `game.toml`              | Serial / boot EXE / EXE header; `[prepare_disc]` Track 01 digests; `[netplay] require_cue`, `required_tracks`, `required_disc_fp` (`psxrecomp-toc-v1`); a `[video]` enhancement block and `[quality.low\|medium\|high\|ultra]` graphics presets (see below) |
 | `seeds/ghidra_funcs.txt` | Entry PC + direct **JAL targets** inside the boot EXE text (first-pass; MotK-class ~850 addrs)                                                         |
 | `catalog_identity.json`  | Digests + `track_counts` + `disc_fp` + optional `marketing` (description / publisher / year / region / players) |
 | `disc_probe.json`        | Full probe dump |
@@ -148,6 +148,35 @@ python3 tools/new_project_layout/probe_disc.py disc/game.cue \
 
 Prefer a **full multi-track** Redump cue. A single-TRACK dump will warn and will
 fail online multi-track gates (see `[NETPLAY.md](NETPLAY.md)`).
+
+#### What the autofilled `[video]` block and presets are for
+
+`probe_disc.py` writes `game.toml` wholesale, so it — not
+`templates/game.toml.in` — is what a `--disc` project ships. Both writers (and
+`psxrecomp-toml`) carry the same block, and
+`tools/tests/test_probe_disc_enhancements.py` fails if the three drift apart.
+
+`[video]` is the shipped look and the four `[quality.*]` tables dial it back;
+on first launch the runtime detects the hardware, picks a tier, saves it, and
+the player can change it in Settings → Display → **Graphics preset**. See
+[QUALITY_PRESETS.md](QUALITY_PRESETS.md).
+
+The defaults are a starting point, not a verdict — tune them for your title:
+
+| Key | Default | Why |
+| --- | --- | --- |
+| `dithering` | `"fine"` | The PS1's 4x4 dither is hardware behaviour, and its default `"on"` puts the pattern on the native VRAM grid, which reads as a cross-hatch once you raise the internal resolution. `"fine"` keeps the pattern but per internal pixel, so the grain all but vanishes above 1x (and is identical to `"on"` at 1x). `"off"` is true colour with no pattern, at the cost of banding on gradients. |
+| `supersample` | `1.5` | Ordered-grid SSAA of everything, 2D included. |
+| `dynamic_resolution` / `dynamic_resolution_min` | `true` / `"display"` | Step the internal resolution under load, never below the output. |
+| `texture_filtering` | `"bilinear"` | `nearest` is the PS1's point sampling; set it back if you want the crisp texels. |
+| `texture_lod` / `anisotropic_filtering` | `"mipmap"` / `4` | Stop far surfaces shimmering at high internal scale. OpenGL only. |
+| `antialiasing_mode` | `"fxaa"` | Output-only filter; never touches guest VRAM. |
+| `fmv_chroma_smoothing` | `true` | Smooths 24-bit FMV chroma. |
+
+`dithering`, `antialiasing_mode` and `internal_resolution` are not preset keys,
+so they cannot be dialled back per tier. `dithering` is one shader op either
+way; `antialiasing_mode` is cheap; `internal_resolution` is left to the player
+(it has its own Settings row).
 
 ### EXE-only autofill (`psxrecomp-toml`)
 

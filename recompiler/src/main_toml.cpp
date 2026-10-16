@@ -240,6 +240,50 @@ int main(int argc, char* argv[]) {
     toml += "\n";
     toml += "[video]\n";
     toml += "renderer = \"opengl\"\n";
+    // Keep this block in sync with render_game_toml() in probe_disc.py and with
+    // tools/new_project_layout/templates/game.toml.in: all three write a
+    // scaffolded game.toml, and tools/tests/test_probe_disc_enhancements.py
+    // asserts they agree. [video] is the shipped look (the Ultra tier) and the
+    // [quality.*] tables dial it back; see docs/QUALITY_PRESETS.md.
+    toml += R"TOML(# PS1 dithering. The hardware default ("on") lays the 4x4 pattern on the
+# native VRAM grid, which at a raised internal resolution reads as a dithered
+# cross-hatch. "fine" keeps the pattern but per internal-resolution pixel, so the
+# grain all but vanishes above 1x and is identical to "on" at 1x; "off" is true
+# colour, at the cost of banding on gradients. OpenGL only.
+# PSX_DITHERING=0|1|2 overrides it for one run.
+dithering = "fine"
+supersample = 1.5
+dynamic_resolution = true
+dynamic_resolution_min = "display"
+texture_filtering = "bilinear"
+texture_lod = "mipmap"
+anisotropic_filtering = 4
+antialiasing_mode = "fxaa"
+fmv_chroma_smoothing = true
+
+# Graphics presets. On first launch the runtime detects the hardware, picks a
+# tier and saves it; the player can change it in Settings -> Display ->
+# Graphics preset. Only keys from the supported preset set may appear here.
+[quality.ultra]
+# Empty: exactly [video].
+
+[quality.high]
+supersample = 1.25
+
+[quality.medium]
+supersample = 1.0
+texture_lod = "off"
+anisotropic_filtering = 1
+dynamic_resolution_min = "720p"
+
+[quality.low]
+supersample = 1.0
+texture_filtering = "nearest"
+texture_lod = "off"
+anisotropic_filtering = 1
+fmv_chroma_smoothing = false
+dynamic_resolution_min = "native"
+)TOML";
 
     // Write output
     if (!output_path.empty() && !force_stdout) {

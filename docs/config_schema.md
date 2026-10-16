@@ -879,6 +879,19 @@ surface colour basis, so it composes with `accurate_blending`. OpenGL only;
 the software and Vulkan renderers do not dither. `PSX_DITHERING=0|1|2`
 overrides it for one run and the `dithering` TCP command switches it live.
 
+Choosing a mode. The pattern is hardware behaviour, not a bug: the PS1 writes
+5 bits per channel, and the 4x4 grid is what keeps gradients (skies, fog,
+lighting ramps) from banding. `on` is therefore the faithful default, but on
+the *native VRAM grid*, so raising the internal resolution multiplies the
+pattern's apparent size and it reads as a cross-hatch. `fine` is the usual
+answer for a quality-focused title: same pattern, one cell per internal pixel,
+so it is identical to `on` at 1x and all but disappears above it. `off` removes
+the pattern entirely and is the right choice only if you prefer crisp colour to
+smooth gradients. Because `fine` is scale-dependent, it needs an internal
+resolution above native (or `supersample`) to show its benefit — the scaffolded
+`[video]` block sets both. Not a preset key, so it cannot be dialled back per
+tier; see [QUALITY_PRESETS.md](QUALITY_PRESETS.md).
+
 ### Texture filtering (`texture_filtering`)
 
 ```toml

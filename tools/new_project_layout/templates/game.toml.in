@@ -21,6 +21,66 @@ seeds = "seeds/ghidra_funcs.txt"
 out_dir = "generated"
 strict = true
 
+# ---------------------------------------------------------------------------
+# Video defaults + graphics presets.
+#
+# Keep this block in sync with render_game_toml() in probe_disc.py: the disc
+# probe rewrites game.toml wholesale, so a project scaffolded with --disc gets
+# its copy from there, not from this file.
+# ---------------------------------------------------------------------------
+[video]
+renderer = "opengl"
+aspect_ratio = "4:3"
+# PS1 dithering. The hardware default ("on") lays the 4x4 pattern on the native
+# VRAM grid, which at a raised internal resolution reads as a dithered
+# cross-hatch. "fine" keeps the pattern but per internal-resolution pixel, so
+# the grain all but vanishes above 1x and is identical to "on" at 1x; "off" is
+# true colour, at the cost of banding on gradients. OpenGL only.
+# PSX_DITHERING=0|1|2 overrides it for one run.
+dithering = "fine"
+# Ordered-grid SSAA of everything (2D included), area-resolved down.
+supersample = 1.5
+# Keep the frame rate: step the internal resolution under load, never below the
+# output resolution.
+dynamic_resolution = true
+dynamic_resolution_min = "display"
+# nearest (the PS1's point sampling) | bilinear | xbr
+texture_filtering = "bilinear"
+# Emulated mip level + taps along the footprint, so far surfaces stop shimmering
+# at high internal scale. OpenGL only.
+texture_lod = "mipmap"
+anisotropic_filtering = 4
+# Output-only FXAA after the composed image; never touches guest VRAM.
+antialiasing_mode = "fxaa"
+fmv_chroma_smoothing = true
+
+# Graphics presets. [video] above is the shipped look (the Ultra tier); these
+# dial it back. On first launch the runtime detects the hardware, picks a tier
+# and saves it, and the player can change it in Settings -> Display ->
+# Graphics preset. A preset in force masks the player's saved value for the
+# keys it sets. Only keys from the supported preset set may appear here
+# (internal_resolution, antialiasing_mode, renderer and scanlines are rejected
+# and stay the player's). See docs/QUALITY_PRESETS.md.
+[quality.ultra]
+# Empty: exactly [video].
+
+[quality.high]
+supersample = 1.25
+
+[quality.medium]
+supersample = 1.0
+texture_lod = "off"
+anisotropic_filtering = 1
+dynamic_resolution_min = "720p"
+
+[quality.low]
+supersample = 1.0
+texture_filtering = "nearest"
+texture_lod = "off"
+anisotropic_filtering = 1
+fmv_chroma_smoothing = false
+dynamic_resolution_min = "native"
+
 # Optional identity hashes for Generate / netplay dump checks:
 # [prepare_disc]
 # out_dir = "disc"
