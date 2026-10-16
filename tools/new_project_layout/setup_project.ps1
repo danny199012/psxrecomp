@@ -35,6 +35,8 @@ param(
     [switch]$NoCi,
     [switch]$FetchBoxart,
     [switch]$NoFetchBoxart,
+    [switch]$AllArtwork,
+    [switch]$NoAllArtwork,
     [switch]$Generate,
     [switch]$NoGenerate,
     [switch]$EnableBuild,
@@ -62,6 +64,7 @@ $TemplateDir = Join-Path $ScriptDir "templates"
 $ProbeDisc = Join-Path $ScriptDir "probe_disc.py"
 $FillTokens = Join-Path $ScriptDir "fill_tokens.py"
 $FetchBoxartPy = Join-Path $ScriptDir "fetch_boxart.py"
+$FetchArtworkPy = Join-Path $ScriptDir "fetch_artwork.py"
 $WriteRecompJson = Join-Path $ScriptDir "write_recomp_json.py"
 $DefaultLobbyHost = "netplay.retcomm.net"
 
@@ -263,6 +266,13 @@ $useCi = Resolve-BoolOpt -Enable:$EnableCi -No:$NoCi -PromptDefault:$true `
     -Question "Add GitHub Actions release workflow (Linux/Windows/macOS)?"
 $doBoxart = Resolve-BoolOpt -Enable:$FetchBoxart -No:$NoFetchBoxart -PromptDefault:$true `
     -Question "Fetch libretro boxart now? (needs network)"
+# Title screen / snap / logo come from the same libretro tree; only offer them
+# when boxart was requested. Default off, so --yes stays boxart-only.
+$doAllArtwork = $false
+if ($doBoxart) {
+    $doAllArtwork = Resolve-BoolOpt -Enable:$AllArtwork -No:$NoAllArtwork -PromptDefault:$false `
+        -Question "Also fetch title screen / snap / logo? (needs network)"
+}
 $doGenerate = Resolve-BoolOpt -Enable:$Generate -No:$NoGenerate -PromptDefault:$false `
     -Question "Run Generate now (emitters + OpenBIOS + game C; generated/ is committed for release CI)?"
 
@@ -409,6 +419,7 @@ Write-Host "  netplay:    $useNetplay"
 if ($useNetplay) { Write-Host "  lobby URL:  $NetplayLobbyWs" }
 Write-Host "  CI:         $useCi"
 Write-Host "  boxart:     $doBoxart"
+Write-Host "  artwork:    $doAllArtwork"
 Write-Host "  generate:   $doGenerate"
 Write-Host "  build:      $doBuild"
 Write-Host "  github:     $createGithub"
@@ -648,14 +659,23 @@ Write-Host "== Writing .recomp.json =="
 if ($LASTEXITCODE -ne 0) { Write-Warning ".recomp.json not written" }
 
 if ($doBoxart) {
-    Write-Host "== Fetching libretro boxart =="
+    if ($doAllArtwork) { Write-Host "== Fetching libretro artwork (boxart/title/snap/logo) ==" }
+    else { Write-Host "== Fetching libretro boxart ==" }
     $cueHint = if ($DiscBasename) { $DiscBasename } else { $GameName }
     $prevPy = $env:PYTHONPATH
     try {
-        & $Python $FetchBoxartPy `
-            --out (Join-Path $Root "launcher_assets\img\boxart.tga") `
-            --cue-stem $cueHint `
-            --display-name $GameName
+        if ($doAllArtwork) {
+            & $Python $FetchArtworkPy `
+                --out-dir (Join-Path $Root "launcher_assets\img") `
+                --all `
+                --cue-stem $cueHint `
+                --display-name $GameName
+        } else {
+            & $Python $FetchBoxartPy `
+                --out (Join-Path $Root "launcher_assets\img\boxart.tga") `
+                --cue-stem $cueHint `
+                --display-name $GameName
+        }
         if ($LASTEXITCODE -eq 0) {
             $HasBoxart = $true
             Write-TextFile $BoxartBlockFile '    LAUNCHER_BOXART "${CMAKE_CURRENT_SOURCE_DIR}/launcher_assets/img/boxart.tga"'
@@ -665,10 +685,10 @@ if ($doBoxart) {
             & $Python -c "from pathlib import Path; import sys; from project_studio.readme_metrics import inject_readme_boxart; inject_readme_boxart(Path(sys.argv[1]), sys.argv[2])" (Join-Path $Root "README.md") $GameName
             Write-Host "  injected boxart into README.md"
         } else {
-            Write-Warning "boxart fetch failed -- leave LAUNCHER_BOXART commented."
+            Write-Warning "artwork fetch failed -- leave LAUNCHER_BOXART commented."
         }
     } catch {
-        Write-Warning "boxart fetch failed -- leave LAUNCHER_BOXART commented."
+        Write-Warning "artwork fetch failed -- leave LAUNCHER_BOXART commented."
     } finally {
         if ($null -eq $prevPy) { Remove-Item Env:PYTHONPATH -ErrorAction SilentlyContinue } else { $env:PYTHONPATH = $prevPy }
     }
@@ -713,6 +733,9 @@ if (Test-Path (Join-Path $Root ".recomp.json")) {
 }
 if ($HasBoxart) {
     git add launcher_assets/img/boxart.tga launcher_assets/img/boxart.png launcher_assets/img/BOXART_SOURCE.txt 2>$null
+    if ($doAllArtwork) {
+        git add launcher_assets/img/title.png launcher_assets/img/snap.png launcher_assets/img/logo.png launcher_assets/img/ARTWORK_MANIFEST.json 2>$null
+    }
 }
 $committed = $false
 try {

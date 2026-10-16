@@ -510,6 +510,10 @@ See [`docs/STRING_TRANSLATION.md`](docs/STRING_TRANSLATION.md); *Tsumu Light*
 | **Vulkan** | **Experimental.** Built when the SDK is present, opt-in at runtime; falls back to OpenGL if unavailable. |
 | **Software** | CPU rasterizer — the reference look, and the most portable fallback. |
 
+Renderer and launcher feature plans (DX12/Vulkan/Metal via SDL_GPU, aspect
+ratios, artwork, RetroAchievements) are tracked in
+[`docs/LAUNCHER_AND_SERVICES_ROADMAP.md`](docs/LAUNCHER_AND_SERVICES_ROADMAP.md).
+
 ### Geometry enhancements (opt-in)
 
 Two optional fixes for the PS1's fixed-point geometry pipeline, off by default

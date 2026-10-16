@@ -35,6 +35,7 @@ and a first-pass seed list from the boot EXE.
 | Windows                 | `[tools/new_project_layout/setup_project.ps1](../tools/new_project_layout/setup_project.ps1)` |
 | Disc probe (standalone) | `[tools/new_project_layout/probe_disc.py](../tools/new_project_layout/probe_disc.py)`         |
 | Boxart fetch            | `[tools/new_project_layout/fetch_boxart.py](../tools/new_project_layout/fetch_boxart.py)`     |
+| Artwork fetch (all)     | `[tools/new_project_layout/fetch_artwork.py](../tools/new_project_layout/fetch_artwork.py)`   |
 | Token fill helper       | `[tools/new_project_layout/fill_tokens.py](../tools/new_project_layout/fill_tokens.py)`       |
 
 
@@ -89,6 +90,7 @@ Flag overrides (non-interactive): `--enable-recomp-ui` / `--no-recomp-ui`,
 `--enable-wizard` / `--no-wizard`, `--enable-netplay` / `--no-netplay`,
 `--lobby-url`, `--description` / `--publisher` / `--year` / `--region`,
 `--enable-ci` / `--no-ci`, `--fetch-boxart` / `--no-fetch-boxart`,
+`--all-artwork` / `--no-all-artwork`,
 `--generate` / `--no-generate`, `--enable-build` / `--no-build`,
 `--create-github` / `--no-github` / `--github-visibility`, … (PowerShell:
 `-EnableRecompUi`, `-LobbyUrl`, `-EnableBuild`, `-CreateGithub`, …).
@@ -109,8 +111,15 @@ What runs after answers:
    the scaffold force-publishes when visibility is public and nudges with a
    tiny follow-up commit that retouches the workflow file.
 
-Standalone helpers: `probe_disc.py`, `fetch_boxart.py`, `fill_tokens.py`,
-`sync_symbols.py`.
+Standalone helpers: `probe_disc.py`, `fetch_boxart.py`, `fetch_artwork.py`,
+`fill_tokens.py`, `sync_symbols.py`.
+
+`fetch_artwork.py` is the general form of `fetch_boxart.py` (which is now a thin
+wrapper over it): it pulls any of the libretro `Named_Boxarts` / `Named_Titles`
+/ `Named_Snaps` / `Named_Logos` sets and writes `ARTWORK_MANIFEST.json` with the
+matched name, source URL, and pixel size of each asset. `--all-artwork` runs it
+for the whole set during scaffolding; see
+[LAUNCHER_AND_SERVICES_ROADMAP.md](LAUNCHER_AND_SERVICES_ROADMAP.md) §3.
 
 ### Disc autofill (`probe_disc.py`)
 
@@ -331,6 +340,9 @@ YourGameRecomp/                 # your git repo
 ├── codegen_setup.c / .h        # title PsxrecompCodegenHostConfig (+ apply hooks)
 ├── launcher_assets/img/
 │   ├── boxart.tga              # optional: --fetch-boxart (libretro Named_Boxarts)
+│   ├── title.png / snap.png    # optional: --all-artwork (Named_Titles / Named_Snaps)
+│   ├── logo.png                # optional: --all-artwork (Named_Logos)
+│   ├── ARTWORK_MANIFEST.json   # --all-artwork: matched names, URLs, sizes
 │   └── BOXART_SOURCE.txt       # attribution URL
 ├── mods/preloaded/             # scaffold: empty catalog for shipped .psxmod packages
 │   ├── README.md               # staged to <exe>/mods/README.md

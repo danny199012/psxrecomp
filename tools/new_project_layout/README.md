@@ -13,6 +13,20 @@ sh tools/new_project_layout/setup_project.sh --disc /path/to/game.cue --dir ~/sr
 
 See [`docs/GAME_PROJECT_SETUP.md`](../../docs/GAME_PROJECT_SETUP.md).
 
+## Boxart / artwork
+
+```bash
+# Boxart only (PNG for the README + TGA for recomp-ui LAUNCHER_BOXART)
+python3 tools/new_project_layout/fetch_boxart.py --cue-stem "Tomba!"
+
+# Every libretro set: boxart, title screen, snap, logo (+ ARTWORK_MANIFEST.json)
+python3 tools/new_project_layout/fetch_artwork.py --all \
+  --cue-stem "Tomba!" --out-dir launcher_assets/img
+```
+
+`fetch_boxart.py` is a thin wrapper over `fetch_artwork.py`. See
+[`docs/LAUNCHER_AND_SERVICES_ROADMAP.md`](../../docs/LAUNCHER_AND_SERVICES_ROADMAP.md) §3.
+
 ## Project Studio (migrate / update)
 
 Shared Python library under `project_studio/` with CLI + CustomTkinter GUI.

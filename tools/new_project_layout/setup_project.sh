@@ -15,7 +15,7 @@
 # Everything else is prompted on a TTY (or passed via flags / --yes defaults):
 #   name, players (1–8, default 2), zip-prefix, github owner/repo (README badges),
 #   marketing blurb, recomp-ui, wizard, netplay, lobby URL (if netplay), CI
-#   workflow, fetch-boxart, generate, build (if generate), GitHub repo (gh)
+#   workflow, fetch-boxart, all-artwork, generate, build (if generate), GitHub repo (gh)
 #
 # Non-interactive: --yes (or PSXRECOMP_SETUP_YES=1) requires --name and --disc;
 #   boolean opts stay off unless explicitly flagged; lobby URL defaults to
@@ -41,6 +41,7 @@ TEMPLATE_DIR="$SCRIPT_DIR/templates"
 PROBE_DISC="$SCRIPT_DIR/probe_disc.py"
 FILL_TOKENS="$SCRIPT_DIR/fill_tokens.py"
 FETCH_BOXART="$SCRIPT_DIR/fetch_boxart.py"
+FETCH_ARTWORK="$SCRIPT_DIR/fetch_artwork.py"
 WRITE_RECOMP_JSON="$SCRIPT_DIR/write_recomp_json.py"
 
 NAME=""
@@ -54,6 +55,7 @@ ENABLE_NETPLAY=""
 ENABLE_WIZARD=""
 ENABLE_CI=""
 FETCH_BOXART_FLAG=""
+FETCH_ALL_ARTWORK=""
 DO_GENERATE=""
 DO_BUILD=""
 CREATE_GITHUB=""
@@ -84,6 +86,7 @@ SET_NETPLAY=0
 SET_WIZARD=0
 SET_CI=0
 SET_BOXART=0
+SET_ALL_ARTWORK=0
 SET_GENERATE=0
 SET_BUILD=0
 SET_GITHUB=0
@@ -181,6 +184,8 @@ while [ $# -gt 0 ]; do
         --no-ci) ENABLE_CI=0; SET_CI=1; shift ;;
         --fetch-boxart) FETCH_BOXART_FLAG=1; SET_BOXART=1; shift ;;
         --no-fetch-boxart) FETCH_BOXART_FLAG=0; SET_BOXART=1; shift ;;
+        --all-artwork) FETCH_ALL_ARTWORK=1; FETCH_BOXART_FLAG=1; SET_BOXART=1; SET_ALL_ARTWORK=1; shift ;;
+        --no-all-artwork) FETCH_ALL_ARTWORK=0; SET_ALL_ARTWORK=1; shift ;;
         --generate) DO_GENERATE=1; SET_GENERATE=1; shift ;;
         --no-generate) DO_GENERATE=0; SET_GENERATE=1; shift ;;
         --enable-build) DO_BUILD=1; SET_BUILD=1; shift ;;
@@ -396,6 +401,16 @@ if [ "$SET_BOXART" -eq 0 ]; then
     fi
 fi
 
+# Title screen / snap / logo come from the same libretro tree; only offer them
+# when the player already asked for boxart.
+if [ "$SET_ALL_ARTWORK" -eq 0 ]; then
+    if [ "$YES_MODE" -eq 1 ] || ! is_tty || [ "$FETCH_BOXART_FLAG" -ne 1 ]; then
+        FETCH_ALL_ARTWORK=0
+    else
+        prompt_yn "Also fetch title screen / snap / logo? (needs network)" FETCH_ALL_ARTWORK 0
+    fi
+fi
+
 if [ "$SET_GENERATE" -eq 0 ]; then
     if [ "$YES_MODE" -eq 1 ] || ! is_tty; then
         DO_GENERATE=0
@@ -588,6 +603,7 @@ if [ "$ENABLE_NETPLAY" -eq 1 ]; then
 fi
 echo "  CI:         $ENABLE_CI"
 echo "  boxart:     $FETCH_BOXART_FLAG"
+echo "  artwork:    $FETCH_ALL_ARTWORK"
 echo "  generate:   $DO_GENERATE"
 echo "  build:      $DO_BUILD"
 echo "  github:     $CREATE_GITHUB"
@@ -837,12 +853,24 @@ python3 "$WRITE_RECOMP_JSON" "$ROOT/.recomp.json" \
     || echo "warning: .recomp.json not written" >&2
 
 if [ "$FETCH_BOXART_FLAG" -eq 1 ]; then
-    echo "== Fetching libretro boxart =="
     CUE_HINT="${DISC_BASENAME:-$GAME_NAME}"
-    if python3 "$FETCH_BOXART" \
-        --out "$ROOT/launcher_assets/img/boxart.tga" \
-        --cue-stem "$CUE_HINT" \
-        --display-name "$GAME_NAME"; then
+    if [ "$FETCH_ALL_ARTWORK" -eq 1 ]; then
+        echo "== Fetching libretro artwork (boxart/title/snap/logo) =="
+        ART_OK=0
+        python3 "$FETCH_ARTWORK" \
+            --out-dir "$ROOT/launcher_assets/img" \
+            --all \
+            --cue-stem "$CUE_HINT" \
+            --display-name "$GAME_NAME" && ART_OK=1
+    else
+        echo "== Fetching libretro boxart =="
+        ART_OK=0
+        python3 "$FETCH_BOXART" \
+            --out "$ROOT/launcher_assets/img/boxart.tga" \
+            --cue-stem "$CUE_HINT" \
+            --display-name "$GAME_NAME" && ART_OK=1
+    fi
+    if [ "$ART_OK" -eq 1 ]; then
         HAS_BOXART=1
         printf '%s\n' '    LAUNCHER_BOXART "${CMAKE_CURRENT_SOURCE_DIR}/launcher_assets/img/boxart.tga"' \
             >"$BOXART_BLOCK_FILE"
@@ -854,7 +882,7 @@ if [ "$FETCH_BOXART_FLAG" -eq 1 ]; then
             && echo "  injected boxart into README.md" \
             || echo "warning: README boxart inject failed" >&2
     else
-        echo "warning: boxart fetch failed — leave LAUNCHER_BOXART commented." >&2
+        echo "warning: artwork fetch failed — leave LAUNCHER_BOXART commented." >&2
     fi
 fi
 
@@ -879,6 +907,10 @@ if [ -f "$ROOT/.recomp.json" ]; then
 fi
 if [ "$HAS_BOXART" -eq 1 ]; then
     git add launcher_assets/img/boxart.tga launcher_assets/img/boxart.png launcher_assets/img/BOXART_SOURCE.txt || true
+    if [ "$FETCH_ALL_ARTWORK" -eq 1 ]; then
+        git add launcher_assets/img/title.png launcher_assets/img/snap.png \
+                launcher_assets/img/logo.png launcher_assets/img/ARTWORK_MANIFEST.json || true
+    fi
 fi
 COMMITTED=0
 if git -c user.email=setup@localhost -c user.name=setup \
